@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>requestAnimationFrame & getBoundingClientRect — Tutorial</title>
+<!-- <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"> -->
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #16161c;
+  --bg-card:     #131316;
+  --bg-code:     #0d0d10;
+  --bg-demo:     #111115;
+  --border:      rgba(255,255,255,0.07);
+  --text:        #f1ece7;
+  --text-muted:  #5a5650;
+  --text-bright: #f0ead8;
+  --accent:      #f0a500;
+  --blue:        #5b9cf6;
+  --green:       #4ec990;
+  --red:         #f06060;
+  --yellow:      #f5c842;
+  --ff-head:     'Syne', sans-serif;
+  --ff-body:     'DM Sans', sans-serif;
+  --ff-code:     'JetBrains Mono', monospace;
+}
+
+html  { scroll-behavior: smooth; }
+body  { background: var(--bg); color: var(--text); font-family: var(--ff-body); font-size: 15px; line-height: 1.75; }
+
+.page { max-width: 860px; margin: 0 auto; padding: 0 28px 100px; }
+
+/* Hero */
+.hero { padding: 64px 0 52px; border-bottom: 1px solid var(--border); margin-bottom: 64px; }
+.hero-label { font-family: var(--ff-code); font-size: 11px; color: var(--accent); letter-spacing: .16em; text-transform: uppercase; margin-bottom: 18px; }
+.hero h1   { font-family: var(--ff-head); font-size: clamp(26px,5vw,46px); font-weight: 800; color: var(--text-bright); line-height: 1.1; }
+.hero h1 span { color: var(--accent); }
+.hero p    { margin-top: 18px; font-size: 15px; color: var(--text-muted); max-width: 520px; }
+.nav-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 28px; }
+.nav-pills a { font-family: var(--ff-code); font-size: 11px; padding: 5px 14px; border: 1px solid var(--border); border-radius: 20px; color: var(--text-muted); text-decoration: none; transition: all .15s; }
+.nav-pills a:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Sections */
+.section { margin-bottom: 80px; }
+.section-num   { font-family: var(--ff-head); font-size: 70px; font-weight: 800; color: rgba(240,165,0,.07); line-height: 1; margin-bottom: -10px; }
+.section-title { font-family: var(--ff-head); font-size: 26px; font-weight: 700; color: var(--text-bright); margin-bottom: 6px; }
+.section-tag   { font-family: var(--ff-code); font-size: 12px; color: var(--accent); margin-bottom: 22px; display: block; }
+
+/* Prose */
+.prose p      { margin-bottom: 12px; }
+.prose strong { color: var(--text-bright); font-weight: 500; }
+.prose code   { font-family: var(--ff-code); font-size: 13px; background: rgba(255,255,255,0.06); padding: 1px 7px; border-radius: 4px; color: var(--accent); }
+.prose em     { color: var(--text-muted); font-style: italic; }
+
+/* Callout */
+.callout { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 16px 20px; margin: 22px 0; font-size: 14px; line-height: 1.7; }
+.callout strong { display: block; font-family: var(--ff-code); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--accent); margin-bottom: 8px; }
+
+/* Properties table */
+.prop-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13px; }
+.prop-table th { text-align: left; font-family: var(--ff-code); font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .1em; padding: 6px 14px; border-bottom: 1px solid var(--border); }
+.prop-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.prop-table td:first-child { font-family: var(--ff-code); font-size: 12px; color: var(--blue); white-space: nowrap; }
+.prop-table td:last-child  { color: var(--text-muted); }
+.prop-table tr:last-child td { border-bottom: none; }
+
+/* Code blocks */
+.code-block { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 26px 0; }
+.code-tabs  { display: flex; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); }
+.tab-btn { font-family: var(--ff-code); font-size: 11px; letter-spacing: .08em; padding: 9px 18px; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; }
+.tab-btn[data-lang="html"] { color: #fb923c; }
+.tab-btn[data-lang="css"]  { color: var(--blue); }
+.tab-btn[data-lang="js"]   { color: var(--yellow); }
+.tab-btn.active { background: rgba(255,255,255,0.03); border-bottom-color: currentColor; }
+.code-panel        { display: none; }
+.code-panel.active { display: block; }
+pre { padding: 22px 24px; overflow-x: auto; font-family: var(--ff-code); font-size: 13px; line-height: 1.75; color: #abb2bf; }
+
+/* Syntax */
+.kw   { color: #c792ea; }
+.fn   { color: #82aaff; }
+.str  { color: #c3e88d; }
+.num  { color: #f78c6c; }
+.cm   { color: #546e7a; font-style: italic; }
+.prop { color: #f07178; }
+.sel  { color: #ffcb6b; }
+.val  { color: #89ddff; }
+.tag  { color: #f07178; }
+.attr { color: #ffcb6b; }
+.av   { color: #c3e88d; }
+.hl   { color: #f0a500; font-weight: 600; }
+
+/* Demo areas */
+.demo-wrap  { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 26px 0; }
+.demo-label { font-family: var(--ff-code); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--text-muted); padding: 9px 16px; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.demo-label .live { color: var(--green); }
+.demo-inner { background: var(--bg-demo); padding: 22px; }
+.demo-btn   { font-family: var(--ff-code); font-size: 11px; padding: 5px 16px; background: transparent; border: 1px solid var(--border); color: var(--text); cursor: pointer; border-radius: 4px; transition: all .15s; }
+.demo-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+hr { border: none; border-top: 1px solid var(--border); margin: 64px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-label">Vanilla JavaScript · DOM Animation · Collision</div>
+  <h1>requestAnimationFrame<br>& <span>getBoundingClientRect</span></h1>
+  <p>Build smooth animations and collision detection with pure JavaScript — no canvas, no libraries, just DOM elements.</p>
+  <nav class="nav-pills">
+    <a href="#raf">01 — requestAnimationFrame</a>
+    <a href="#bcr">02 — getBoundingClientRect</a>
+    <a href="#col">03 — Collision Detection</a>
+    <a href="#jump">04 — Jump on Collision</a>
+  </nav>
+</header>
+
+
+<!-- SECTION 01 -->
+<section class="section" id="raf">
+  <div class="section-num">01</div>
+  <div class="section-title">requestAnimationFrame</div>
+  <span class="section-tag">window.requestAnimationFrame( callback )</span>
+
+  <div class="prose">
+    <p><strong>What is it?</strong> A browser API that says: <em>"Before you paint the next screen frame, run my function."</em> It fires roughly 60 times per second, in sync with your monitor's refresh rate.</p>
+    <p><strong>Why not setInterval?</strong> <code>setInterval</code> runs on a timer regardless of what the screen is doing — it can fire too early, too late, or pile up missed frames. <code>requestAnimationFrame</code> is always perfectly in sync with the display, and it automatically <strong>pauses when the tab is hidden</strong>, saving CPU and battery.</p>
+  </div>
+
+  <div class="callout">
+    <strong>The animation loop pattern</strong>
+    You create a loop by having your function call <code>requestAnimationFrame(itself)</code> at the end. Each call schedules exactly <em>one</em> upcoming frame. It returns a numeric ID you can pass to <code>cancelAnimationFrame(id)</code> to stop the loop.
+  </div>
+
+  <div class="code-block" id="cb1">
+    <div class="code-tabs">
+      <button class="tab-btn active" data-lang="html" onclick="switchTab('cb1','html',this)">HTML</button>
+      <button class="tab-btn" data-lang="css"  onclick="switchTab('cb1','css',this)">CSS</button>
+      <button class="tab-btn" data-lang="js"   onclick="switchTab('cb1','js',this)">JS</button>
+    </div>
+    <div class="code-panel active" id="cb1-html"><pre><span class="tag">&lt;div</span> <span class="attr">id</span>=<span class="av">"box"</span><span class="tag">&gt;&lt;/div&gt;</span>
+
+<span class="tag">&lt;button</span> <span class="attr">id</span>=<span class="av">"btn"</span><span class="tag">&gt;</span>Start<span class="tag">&lt;/button&gt;</span>
+<span class="tag">&lt;p</span>     <span class="attr">id</span>=<span class="av">"counter"</span><span class="tag">&gt;</span>Frame: 0<span class="tag">&lt;/p&gt;</span></pre></div>
+    <div class="code-panel" id="cb1-css"><pre><span class="sel">#box</span> {
+  <span class="prop">width</span>:         <span class="num">60px</span>;
+  <span class="prop">height</span>:        <span class="num">60px</span>;
+  <span class="prop">background</span>:    <span class="val">coral</span>;
+  <span class="prop">border-radius</span>: <span class="num">8px</span>;
+  <span class="prop">position</span>:      <span class="val">absolute</span>;
+  <span class="prop">top</span>:           <span class="num">20px</span>;
+  <span class="prop">left</span>:          <span class="num">0</span>;
+}</pre></div>
+    <div class="code-panel" id="cb1-js"><pre><span class="kw">let</span> x          = <span class="num">0</span>;
+<span class="kw">let</span> direction  = <span class="num">1</span>;
+<span class="kw">let</span> frameId    = <span class="kw">null</span>;
+<span class="kw">let</span> frameCount = <span class="num">0</span>;
+<span class="kw">let</span> running    = <span class="kw">false</span>;
+
+<span class="kw">function</span> <span class="fn">animate</span>() {
+  x += <span class="num">3</span> * direction;
+  <span class="kw">if</span> (x &gt; <span class="num">280</span> || x &lt; <span class="num">0</span>) direction *= -<span class="num">1</span>;
+
+  document.<span class="fn">getElementById</span>(<span class="str">'box'</span>).style.left =
+    x + <span class="str">'px'</span>;
+
+  document.<span class="fn">getElementById</span>(<span class="str">'counter'</span>).textContent =
+    <span class="str">'Frame: '</span> + (++frameCount);
+
+  frameId = <span class="fn">requestAnimationFrame</span>(animate);
+}
+
+document.<span class="fn">getElementById</span>(<span class="str">'btn'</span>).onclick = <span class="kw">function</span>() {
+  <span class="kw">if</span> (running) {
+    <span class="fn">cancelAnimationFrame</span>(frameId);
+    this.textContent = <span class="str">'Start'</span>;
+  } <span class="kw">else</span> {
+    <span class="fn">animate</span>();
+    this.textContent = <span class="str">'Pause'</span>;
+  }
+  running = !running;
+};</pre></div>
+  </div>
+
+  <div class="demo-wrap">
+    <div class="demo-label">live demo — requestAnimationFrame <span class="live">● interactive</span></div>
+    <div class="demo-inner" style="position:relative;height:120px;">
+      <div id="d1-box" style="width:54px;height:54px;background:#d95a30;border-radius:8px;position:absolute;top:20px;left:0;"></div>
+      <div style="position:absolute;bottom:14px;left:0;display:flex;gap:14px;align-items:center;">
+        <button class="demo-btn" id="d1-btn" onclick="d1Toggle()">Start</button>
+        <span style="font-family:var(--ff-code);font-size:12px;color:var(--text-muted);" id="d1-counter">Frame: 0</span>
+        <span style="font-family:var(--ff-code);font-size:12px;color:var(--text-muted);" id="d1-fps"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+
+<!-- SECTION 02 -->
+<section class="section" id="bcr">
+  <div class="section-num">02</div>
+  <div class="section-title">getBoundingClientRect</div>
+  <span class="section-tag">element.getBoundingClientRect()</span>
+
+  <div class="prose">
+    <p><strong>What is it?</strong> A method available on <em>any</em> HTML element that returns a <code>DOMRect</code> object containing the element's exact size and position — measured in pixels, <strong>relative to the viewport</strong> (the visible area of the browser window).</p>
+    <p>It always reflects the element's <em>current rendered state</em>, so it works correctly even after CSS transforms, scrolling, or layout changes.</p>
+  </div>
+
+  <table class="prop-table">
+    <thead><tr><th>Property</th><th>What it tells you</th></tr></thead>
+    <tbody>
+      <tr><td>rect.top</td>   <td>Pixels from the viewport top to the element's top edge</td></tr>
+      <tr><td>rect.left</td>  <td>Pixels from the viewport left to the element's left edge</td></tr>
+      <tr><td>rect.right</td> <td>Pixels from the viewport left to the element's right edge</td></tr>
+      <tr><td>rect.bottom</td><td>Pixels from the viewport top to the element's bottom edge</td></tr>
+      <tr><td>rect.width</td> <td>The element's rendered width in pixels</td></tr>
+      <tr><td>rect.height</td><td>The element's rendered height in pixels</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code-block" id="cb2">
+    <div class="code-tabs">
+      <button class="tab-btn active" data-lang="html" onclick="switchTab('cb2','html',this)">HTML</button>
+      <button class="tab-btn" data-lang="css"  onclick="switchTab('cb2','css',this)">CSS</button>
+      <button class="tab-btn" data-lang="js"   onclick="switchTab('cb2','js',this)">JS</button>
+    </div>
+    <div class="code-panel active" id="cb2-html"><pre><span class="tag">&lt;div</span> <span class="attr">id</span>=<span class="av">"box"</span><span class="tag">&gt;</span>Hover me<span class="tag">&lt;/div&gt;</span>
+<span class="tag">&lt;pre</span> <span class="attr">id</span>=<span class="av">"info"</span><span class="tag">&gt;</span>Hover the box to see its rect<span class="tag">&lt;/pre&gt;</span></pre></div>
+    <div class="code-panel" id="cb2-css"><pre><span class="sel">#box</span> {
+  <span class="prop">width</span>:           <span class="num">140px</span>;
+  <span class="prop">height</span>:          <span class="num">60px</span>;
+  <span class="prop">background</span>:      <span class="val">steelblue</span>;
+  <span class="prop">color</span>:           <span class="val">white</span>;
+  <span class="prop">display</span>:         <span class="val">flex</span>;
+  <span class="prop">align-items</span>:     <span class="val">center</span>;
+  <span class="prop">justify-content</span>: <span class="val">center</span>;
+  <span class="prop">border-radius</span>:   <span class="num">8px</span>;
+  <span class="prop">cursor</span>:          <span class="val">default</span>;
+}
+<span class="sel">#info</span> {
+  <span class="prop">margin-top</span>:  <span class="num">14px</span>;
+  <span class="prop">font-size</span>:   <span class="num">13px</span>;
+  <span class="prop">color</span>:       <span class="val">#777</span>;
+  <span class="prop">line-height</span>: <span class="num">1.8</span>;
+}</pre></div>
+    <div class="code-panel" id="cb2-js"><pre><span class="kw">const</span> box  = document.<span class="fn">getElementById</span>(<span class="str">'box'</span>);
+<span class="kw">const</span> info = document.<span class="fn">getElementById</span>(<span class="str">'info'</span>);
+
+box.<span class="fn">addEventListener</span>(<span class="str">'mousemove'</span>, <span class="kw">function</span>() {
+  <span class="kw">const</span> rect = box.<span class="fn">getBoundingClientRect</span>();
+
+  info.textContent =
+    <span class="str">`top:    `</span> + Math.<span class="fn">round</span>(rect.top)    + <span class="str">`\n`</span> +
+    <span class="str">`left:   `</span> + Math.<span class="fn">round</span>(rect.left)   + <span class="str">`\n`</span> +
+    <span class="str">`right:  `</span> + Math.<span class="fn">round</span>(rect.right)  + <span class="str">`\n`</span> +
+    <span class="str">`bottom: `</span> + Math.<span class="fn">round</span>(rect.bottom) + <span class="str">`\n`</span> +
+    <span class="str">`width:  `</span> + rect.width  + <span class="str">`\n`</span> +
+    <span class="str">`height: `</span> + rect.height;
+});
+
+box.<span class="fn">addEventListener</span>(<span class="str">'mouseleave'</span>, <span class="kw">function</span>() {
+  info.textContent = <span class="str">'Hover the box to see its rect'</span>;
+});</pre></div>
+  </div>
+
+  <div class="demo-wrap">
+    <div class="demo-label">live demo — getBoundingClientRect <span class="live">● hover the box</span></div>
+    <div class="demo-inner" style="display:flex;gap:28px;align-items:flex-start;">
+      <div id="d2-box" style="width:130px;height:58px;background:#2563a8;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--ff-code);font-size:12px;color:rgba(255,255,255,0.7);cursor:default;">hover me</div>
+      <pre id="d2-info" style="font-family:var(--ff-code);font-size:12px;color:var(--text-muted);line-height:1.85;">Hover the box to see its rect</pre>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+
+<!-- SECTION 03 -->
+<section class="section" id="col">
+  <div class="section-num">03</div>
+  <div class="section-title">Collision Detection</div>
+  <span class="section-tag">requestAnimationFrame + getBoundingClientRect combined</span>
+
+  <div class="prose">
+    <p><strong>How does it work?</strong> On every animation frame, we call <code>getBoundingClientRect()</code> on two elements and compare their edges. Two rectangles are <em>not</em> overlapping if one is completely outside the other on any axis. We check for all four "no collision" cases and negate them.</p>
+  </div>
+
+  <div class="callout">
+    <strong>The collision formula — AABB (Axis-Aligned Bounding Box)</strong>
+    Two rectangles <strong>A</strong> and <strong>B</strong> are colliding when <em>all four</em> of these are true at once:<br><br>
+    &nbsp;&nbsp;A.right  &gt; B.left&nbsp;&nbsp; · &nbsp;&nbsp;A.left   &lt; B.right<br>
+    &nbsp;&nbsp;A.bottom &gt; B.top &nbsp;&nbsp; · &nbsp;&nbsp;A.top    &lt; B.bottom<br><br>
+    Equivalently: they are <em>not</em> colliding when A is fully left, right, above, or below B. Negate those four conditions with <code>!</code> and you get the collision check.
+  </div>
+
+  <div class="code-block" id="cb3">
+    <div class="code-tabs">
+      <button class="tab-btn active" data-lang="html" onclick="switchTab('cb3','html',this)">HTML</button>
+      <button class="tab-btn" data-lang="css"  onclick="switchTab('cb3','css',this)">CSS</button>
+      <button class="tab-btn" data-lang="js"   onclick="switchTab('cb3','js',this)">JS</button>
+    </div>
+    <div class="code-panel active" id="cb3-html"><pre><span class="tag">&lt;div</span> <span class="attr">id</span>=<span class="av">"scene"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;div</span> <span class="attr">id</span>=<span class="av">"player"</span><span class="tag">&gt;&lt;/div&gt;</span>
+  <span class="tag">&lt;div</span> <span class="attr">id</span>=<span class="av">"wall"</span><span class="tag">&gt;&lt;/div&gt;</span>
+<span class="tag">&lt;/div&gt;</span>
+
+<span class="tag">&lt;button</span> <span class="attr">id</span>=<span class="av">"btn"</span><span class="tag">&gt;</span>Start<span class="tag">&lt;/button&gt;</span>
+<span class="tag">&lt;p</span>     <span class="attr">id</span>=<span class="av">"status"</span><span class="tag">&gt;</span>No collision<span class="tag">&lt;/p&gt;</span></pre></div>
+    <div class="code-panel" id="cb3-css"><pre><span class="sel">#scene</span> {
+  <span class="prop">position</span>:      <span class="val">relative</span>;
+  <span class="prop">width</span>:         <span class="num">400px</span>;
+  <span class="prop">height</span>:        <span class="num">80px</span>;
+  <span class="prop">background</span>:    <span class="val">#111</span>;
+  <span class="prop">border-radius</span>: <span class="num">6px</span>;
+  <span class="prop">overflow</span>:      <span class="val">hidden</span>;
+}
+<span class="sel">#player</span> {
+  <span class="prop">position</span>:      <span class="val">absolute</span>;
+  <span class="prop">width</span>:         <span class="num">44px</span>;
+  <span class="prop">height</span>:        <span class="num">44px</span>;
+  <span class="prop">background</span>:    <span class="val">#4ec990</span>;
+  <span class="prop">border-radius</span>: <span class="num">6px</span>;
+  <span class="prop">top</span>:           <span class="num">18px</span>;
+  <span class="prop">left</span>:          <span class="num">0</span>;
+  <span class="prop">transition</span>:    <span class="val">background 0.06s</span>;
+}
+<span class="sel">#wall</span> {
+  <span class="prop">position</span>:      <span class="val">absolute</span>;
+  <span class="prop">width</span>:         <span class="num">18px</span>;
+  <span class="prop">height</span>:        <span class="num">60px</span>;
+  <span class="prop">background</span>:    <span class="val">#555</span>;
+  <span class="prop">border-radius</span>: <span class="num">4px</span>;
+  <span class="prop">top</span>:           <span class="num">10px</span>;
+  <span class="prop">left</span>:          <span class="num">50%</span>;
+  <span class="prop">transition</span>:    <span class="val">background 0.06s</span>;
+}</pre></div>
+    <div class="code-panel" id="cb3-js"><pre><span class="kw">const</span> player = document.<span class="fn">getElementById</span>(<span class="str">'player'</span>);
+<span class="kw">const</span> wall   = document.<span class="fn">getElementById</span>(<span class="str">'wall'</span>);
+<span class="kw">const</span> status = document.<span class="fn">getElementById</span>(<span class="str">'status'</span>);
+<span class="kw">let</span> x = <span class="num">0</span>, dir = <span class="num">1</span>, running = <span class="kw">false</span>, id;
+
+<span class="kw">function</span> <span class="fn">isColliding</span>(a, b) {
+  <span class="kw">const</span> r1 = a.<span class="fn">getBoundingClientRect</span>();
+  <span class="kw">const</span> r2 = b.<span class="fn">getBoundingClientRect</span>();
+  <span class="kw">return</span> !(
+    r1.right  &lt; r2.left   ||
+    r1.left   &gt; r2.right  ||
+    r1.bottom &lt; r2.top    ||
+    r1.top    &gt; r2.bottom
+  );
+}
+
+<span class="kw">function</span> <span class="fn">loop</span>() {
+  x += <span class="num">2</span> * dir;
+  <span class="kw">if</span> (x &gt; <span class="num">340</span> || x &lt; <span class="num">0</span>) dir *= -<span class="num">1</span>;
+  player.style.left = x + <span class="str">'px'</span>;
+
+  <span class="kw">if</span> (<span class="fn">isColliding</span>(player, wall)) {
+    player.style.background = <span class="str">'#f06060'</span>;
+    wall.style.background   = <span class="str">'#f06060'</span>;
+    status.textContent      = <span class="str">'COLLISION!'</span>;
+  } <span class="kw">else</span> {
+    player.style.background = <span class="str">'#4ec990'</span>;
+    wall.style.background   = <span class="str">'#555'</span>;
+    status.textContent      = <span class="str">'No collision'</span>;
+  }
+
+  id = <span class="fn">requestAnimationFrame</span>(loop);
+}
+
+document.<span class="fn">getElementById</span>(<span class="str">'btn'</span>).onclick = <span class="kw">function</span>() {
+  running = !running;
+  running ? <span class="fn">loop</span>() : <span class="fn">cancelAnimationFrame</span>(id);
+  this.textContent = running ? <span class="str">'Pause'</span> : <span class="str">'Start'</span>;
+};</pre></div>
+  </div>
+
+  <div class="demo-wrap">
+    <div class="demo-label">live demo — collision detection <span class="live">● interactive</span></div>
+    <div class="demo-inner">
+      <div id="d3-scene" style="position:relative;width:100%;height:80px;background:#0b0b0d;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.05);">
+        <div id="d3-player" style="position:absolute;width:44px;height:44px;background:#4ec990;border-radius:6px;top:18px;left:0;transition:background .06s;"></div>
+        <div id="d3-wall"   style="position:absolute;width:18px;height:60px;background:#3a3a4a;border-radius:4px;top:10px;left:50%;transition:background .06s;"></div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:center;margin-top:14px;">
+        <button class="demo-btn" id="d3-btn" onclick="d3Toggle()">Start</button>
+        <span id="d3-status" style="font-family:var(--ff-code);font-size:12px;color:var(--text-muted);">No collision</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+
+<!-- SECTION 04 — Jump on Collision -->
+<section class="section" id="jump">
+  <div class="section-num">04</div>
+  <div class="section-title">Jump on Collision</div>
+  <span class="section-tag">collision &rarr; velY + gravity loop</span>
+
+  <div class="prose">
+    <p><strong>What's the idea?</strong> When <code>isColliding()</code> returns <code>true</code>, we set <code>velY</code> to a negative number (upward force). A gravity value is added to <code>velY</code> every frame, gradually pulling the square back down to the ground.</p>
+    <p><strong>Three new variables</strong> are added on top of Section 03: <code>y</code> (height above ground), <code>velY</code> (current vertical speed), and <code>hasJumped</code> — a one-shot lock that prevents the jump re-firing every frame while the boxes are still overlapping.</p>
+  </div>
+
+  <div class="callout">
+    <strong>Why hasJumped matters</strong>
+    Without it, <code>isColliding()</code> stays <code>true</code> for several frames while boxes overlap — resetting <code>velY</code> every frame cancels the jump before it travels anywhere. Setting <code>hasJumped = true</code> on the first hit locks out further triggers. It's reset to <code>false</code> only when the square lands back on the ground (<code>y &lt;= 0</code>).
+  </div>
+
+  <div class="code-block" id="cb4">
+    <div class="code-tabs">
+      <button class="tab-btn active" data-lang="html" onclick="switchTab('cb4','html',this)">HTML</button>
+      <button class="tab-btn" data-lang="css"  onclick="switchTab('cb4','css',this)">CSS</button>
+      <button class="tab-btn" data-lang="js"   onclick="switchTab('cb4','js',this)">JS</button>
+    </div>
+
+    <div class="code-panel active" id="cb4-html"><pre><span class="tag">&lt;div</span> <span class="attr">id</span>=<span class="av">"scene"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="av">"ground"</span><span class="tag">&gt;&lt;/div&gt;</span>
+  <span class="tag">&lt;div</span> <span class="attr">id</span>=<span class="av">"player"</span><span class="tag">&gt;&lt;/div&gt;</span>
+  <span class="tag">&lt;div</span> <span class="attr">id</span>=<span class="av">"wall"</span><span class="tag">&gt;&lt;/div&gt;</span>
+<span class="tag">&lt;/div&gt;</span>
+
+<span class="tag">&lt;button</span> <span class="attr">id</span>=<span class="av">"btn"</span><span class="tag">&gt;</span>Start<span class="tag">&lt;/button&gt;</span>
+<span class="tag">&lt;button</span> <span class="attr">onclick</span>=<span class="av">"d4Reset()"</span><span class="tag">&gt;</span>Reset<span class="tag">&lt;/button&gt;</span></pre></div>
+
+    <div class="code-panel" id="cb4-css"><pre><span class="sel">#scene</span> {
+  <span class="prop">position</span>:   <span class="val">relative</span>;
+  <span class="prop">width</span>:      <span class="num">100%</span>;
+  <span class="prop">height</span>:     <span class="num">130px</span>;
+  <span class="prop">background</span>: <span class="val">#111</span>;
+  <span class="prop">overflow</span>:   <span class="val">hidden</span>;
+}
+
+<span class="sel">.ground</span> {
+  <span class="prop">position</span>:   <span class="val">absolute</span>;
+  <span class="prop">bottom</span>:     <span class="num">0</span>; <span class="prop">left</span>: <span class="num">0</span>; <span class="prop">right</span>: <span class="num">0</span>;
+  <span class="prop">height</span>:     <span class="num">28px</span>;
+  <span class="prop">background</span>: <span class="val">#1a1a22</span>;
+  <span class="prop">border-top</span>: <span class="num">1px</span> <span class="val">solid rgba(255,255,255,0.08)</span>;
+}
+
+<span class="sel">#player</span> {
+  <span class="prop">position</span>:      <span class="val">absolute</span>;
+  <span class="prop">width</span>:         <span class="num">42px</span>;
+  <span class="prop">height</span>:        <span class="num">42px</span>;
+  <span class="prop">background</span>:    <span class="val">#5b9cf6</span>;
+  <span class="prop">border-radius</span>: <span class="num">6px</span>;
+  <span class="prop">bottom</span>:        <span class="num">28px</span>;
+  <span class="prop">left</span>:          <span class="num">20px</span>;
+}
+
+<span class="sel">#wall</span> {
+  <span class="prop">position</span>:      <span class="val">absolute</span>;
+  <span class="prop">width</span>:         <span class="num">16px</span>;
+  <span class="prop">height</span>:        <span class="num">58px</span>;
+  <span class="prop">background</span>:    <span class="val">#3a3a4a</span>;
+  <span class="prop">border-radius</span>: <span class="num">4px</span> <span class="num">4px</span> <span class="num">0</span> <span class="num">0</span>;
+  <span class="prop">bottom</span>:        <span class="num">28px</span>;
+  <span class="prop">left</span>:          <span class="num">55%</span>;
+}</pre></div>
+
+    <div class="code-panel" id="cb4-js"><pre><span class="cm">// ── State ──────────────────────────────────────</span>
+<span class="kw">let</span> x = <span class="num">20</span>,  velX = <span class="num">2</span>;
+<span class="kw">let</span> y = <span class="num">0</span>,   velY = <span class="num">0</span>;
+
+<span class="kw">const</span> GRAVITY    = <span class="num">0.6</span>;
+<span class="hl">const JUMP_FORCE = -12;     </span><span class="cm">// negative = upward</span>
+<span class="kw">const</span> GROUND     = <span class="num">0</span>;
+<span class="hl">let   hasJumped  = false;   </span><span class="cm">// one-shot lock</span>
+<span class="kw">let</span>   running = <span class="kw">false</span>, id;
+
+<span class="cm">// ── Collision (same as Section 03) ─────────────</span>
+<span class="kw">function</span> <span class="fn">isColliding</span>(a, b) {
+  <span class="kw">const</span> r1 = a.<span class="fn">getBoundingClientRect</span>();
+  <span class="kw">const</span> r2 = b.<span class="fn">getBoundingClientRect</span>();
+  <span class="kw">return</span> !(r1.right  &lt; r2.left  || r1.left &gt; r2.right ||
+            r1.bottom &lt; r2.top   || r1.top  &gt; r2.bottom);
+}
+
+<span class="cm">// ── Loop ───────────────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">loop</span>() {
+  <span class="kw">const</span> player = document.<span class="fn">getElementById</span>(<span class="str">'player'</span>);
+  <span class="kw">const</span> wall   = document.<span class="fn">getElementById</span>(<span class="str">'wall'</span>);
+  <span class="kw">const</span> maxX   = player.parentElement.offsetWidth - <span class="num">42</span>;
+
+  <span class="cm">// 1. Horizontal movement</span>
+  x += velX;
+  <span class="kw">if</span> (x &gt;= maxX || x &lt;= <span class="num">0</span>) velX *= -<span class="num">1</span>;
+
+  <span class="cm">// 2. Gravity pulls velY down each frame</span>
+  <span class="hl">velY += GRAVITY;</span>
+  <span class="hl">y    -= velY;</span>
+  <span class="hl">if (y &lt;= GROUND) { y = GROUND; velY = 0; hasJumped = false; }</span>
+
+  player.style.left   = Math.<span class="fn">round</span>(x) + <span class="str">'px'</span>;
+  player.style.bottom = (<span class="num">28</span> + Math.<span class="fn">round</span>(y)) + <span class="str">'px'</span>;
+
+  <span class="cm">// 3. Collision → jump (fires only once per landing)</span>
+  <span class="hl">if (isColliding(player, wall) &amp;&amp; !hasJumped) {</span>
+    <span class="hl">  velY      = JUMP_FORCE;</span>
+    <span class="hl">  hasJumped = true;</span>
+  <span class="hl">}</span>
+
+  id = <span class="fn">requestAnimationFrame</span>(loop);
+}
+
+document.<span class="fn">getElementById</span>(<span class="str">'btn'</span>).onclick = <span class="kw">function</span>() {
+  running = !running;
+  running ? <span class="fn">loop</span>() : <span class="fn">cancelAnimationFrame</span>(id);
+  this.textContent = running ? <span class="str">'Pause'</span> : <span class="str">'Start'</span>;
+};</pre></div>
+  </div>
+
+  <!-- Demo 4 -->
+  <div class="demo-wrap">
+    <div class="demo-label">live demo — jump on collision <span class="live">● interactive</span></div>
+    <div class="demo-inner">
+      <div id="d4-scene" style="position:relative;width:100%;height:130px;background:#0b0b0d;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.05);">
+        <div style="position:absolute;bottom:0;left:0;right:0;height:28px;background:#1a1a22;border-top:1px solid rgba(255,255,255,0.07);"></div>
+        <div id="d4-player" style="position:absolute;width:42px;height:42px;background:#5b9cf6;border-radius:6px;bottom:28px;left:20px;transition:background .08s;"></div>
+        <div id="d4-wall"   style="position:absolute;width:16px;height:58px;background:#3a3a4a;border-radius:4px 4px 0 0;bottom:28px;left:55%;"></div>
+        <div style="position:absolute;top:10px;right:12px;display:flex;gap:18px;">
+          <span style="font-family:var(--ff-code);font-size:11px;color:var(--text-muted);">velY <span id="d4-vel" style="color:var(--text);">0.0</span></span>
+          <span style="font-family:var(--ff-code);font-size:11px;color:var(--text-muted);">y <span id="d4-y" style="color:var(--text);">0</span></span>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap;">
+        <button class="demo-btn" id="d4-btn" onclick="d4Toggle()">Start</button>
+        <button class="demo-btn" onclick="d4Reset()">Reset</button>
+        <span style="font-family:var(--ff-code);font-size:11px;color:var(--text-muted);margin-left:4px;">Force</span>
+        <input type="range" id="d4-force" min="6" max="18" value="12" step="1" style="width:80px;accent-color:var(--accent);" oninput="document.getElementById('d4-fval').textContent=this.value">
+        <span style="font-family:var(--ff-code);font-size:11px;color:var(--text);min-width:16px;" id="d4-fval">12</span>
+        <span style="font-family:var(--ff-code);font-size:11px;color:var(--text-muted);margin-left:4px;">Speed</span>
+        <input type="range" id="d4-speed" min="1" max="6" value="2" step="1" style="width:70px;accent-color:var(--accent);" oninput="document.getElementById('d4-sval').textContent=this.value">
+        <span style="font-family:var(--ff-code);font-size:11px;color:var(--text);min-width:12px;" id="d4-sval">2</span>
+        <span id="d4-status" style="font-family:var(--ff-code);font-size:12px;color:var(--text-muted);margin-left:8px;">no collision</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+</div><!-- /page -->
+
+<script>
+
+/* Tab switcher */
+function switchTab(blockId, lang, btn) {
+  var block = document.getElementById(blockId);
+  block.querySelectorAll('.code-panel').forEach(function(p) { p.classList.remove('active'); });
+  block.querySelectorAll('.tab-btn').forEach(function(b)   { b.classList.remove('active'); });
+  document.getElementById(blockId + '-' + lang).classList.add('active');
+  btn.classList.add('active');
+}
+
+
+/* Demo 1: requestAnimationFrame */
+(function() {
+  var x = 0, dir = 1, id = null, running = false;
+  var frame = 0, fps = 0, fpsCount = 0, fpsTimer = 0, lastTime = 0;
+
+  function animate(ts) {
+    var dt = ts - lastTime; lastTime = ts;
+    fpsTimer += dt; fpsCount++;
+    if (fpsTimer >= 600) { fps = Math.round(fpsCount * 1000 / fpsTimer); fpsTimer = 0; fpsCount = 0; }
+    var scene = document.getElementById('d1-box').parentElement;
+    var maxX  = scene.offsetWidth - 54;
+    x += 3 * dir;
+    if (x >= maxX || x <= 0) { dir *= -1; x = Math.max(0, Math.min(x, maxX)); }
+    document.getElementById('d1-box').style.left = x + 'px';
+    document.getElementById('d1-counter').textContent = 'Frame: ' + (++frame);
+    document.getElementById('d1-fps').textContent     = fps ? fps + ' fps' : '';
+    id = requestAnimationFrame(animate);
+  }
+
+  window.d1Toggle = function() {
+    running = !running;
+    if (running) { lastTime = performance.now(); animate(lastTime); }
+    else cancelAnimationFrame(id);
+    document.getElementById('d1-btn').textContent = running ? 'Pause' : 'Start';
+  };
+})();
+
+
+/* Demo 2: getBoundingClientRect */
+(function() {
+  var box  = document.getElementById('d2-box');
+  var info = document.getElementById('d2-info');
+  box.addEventListener('mousemove', function() {
+    var r = box.getBoundingClientRect();
+    info.textContent =
+      'top:    ' + Math.round(r.top)    + '\n' +
+      'left:   ' + Math.round(r.left)   + '\n' +
+      'right:  ' + Math.round(r.right)  + '\n' +
+      'bottom: ' + Math.round(r.bottom) + '\n' +
+      'width:  ' + r.width              + '\n' +
+      'height: ' + r.height;
+  });
+  box.addEventListener('mouseleave', function() {
+    info.textContent = 'Hover the box to see its rect';
+  });
+})();
+
+
+/* Demo 3: Collision detection */
+(function() {
+  var player   = document.getElementById('d3-player');
+  var wall     = document.getElementById('d3-wall');
+  var statusEl = document.getElementById('d3-status');
+  var x = 0, dir = 1, running = false, id;
+
+  function isColliding(a, b) {
+    var r1 = a.getBoundingClientRect(), r2 = b.getBoundingClientRect();
+    return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
+  }
+
+  function loop() {
+    var maxX = player.parentElement.offsetWidth - 44;
+    x += 2 * dir;
+    if (x >= maxX || x <= 0) { dir *= -1; x = Math.max(0, Math.min(x, maxX)); }
+    player.style.left = x + 'px';
+    if (isColliding(player, wall)) {
+      player.style.background = '#f06060'; wall.style.background = '#f06060';
+      statusEl.textContent = 'COLLISION!'; statusEl.style.color = '#f06060';
+    } else {
+      player.style.background = '#4ec990'; wall.style.background = '#3a3a4a';
+      statusEl.textContent = 'No collision'; statusEl.style.color = 'var(--text-muted)';
+    }
+    id = requestAnimationFrame(loop);
+  }
+
+  window.d3Toggle = function() {
+    running = !running;
+    if (running) { loop(); }
+    else {
+      cancelAnimationFrame(id);
+      player.style.background = '#4ec990'; wall.style.background = '#3a3a4a';
+      statusEl.textContent = 'No collision'; statusEl.style.color = 'var(--text-muted)';
+    }
+    document.getElementById('d3-btn').textContent = running ? 'Pause' : 'Start';
+  };
+})();
+
+
+/* Demo 4: Jump on Collision */
+(function() {
+  var player     = document.getElementById('d4-player');
+  var wall       = document.getElementById('d4-wall');
+  var statusEl   = document.getElementById('d4-status');
+  var velEl      = document.getElementById('d4-vel');
+  var yEl        = document.getElementById('d4-y');
+  var forceRange = document.getElementById('d4-force');
+  var speedRange = document.getElementById('d4-speed');
+
+  var x = 20, velX = 2;
+  var y = 0,  velY = 0;
+  var GRAVITY = 0.6, GROUND = 0;
+  var hasJumped = false, running = false, id;
+
+  function isColliding(a, b) {
+    var r1 = a.getBoundingClientRect(), r2 = b.getBoundingClientRect();
+    return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
+  }
+
+  function loop() {
+    var maxX = player.parentElement.offsetWidth - 42;
+    var spd  = parseFloat(speedRange.value);
+
+    x += velX;
+    if (x >= maxX) { x = maxX; velX = -spd; }
+    if (x <= 0)    { x = 0;    velX =  spd; }
+
+    velY += GRAVITY;
+    y -= velY;
+    if (y <= GROUND) { y = GROUND; velY = 0; hasJumped = false; }
+
+    player.style.left   = Math.round(x) + 'px';
+    player.style.bottom = (28 + Math.round(y)) + 'px';
+    velEl.textContent   = velY.toFixed(1);
+    yEl.textContent     = Math.round(y);
+
+    if (isColliding(player, wall) && !hasJumped) {
+      velY = -parseFloat(forceRange.value);
+      hasJumped = true;
+    }
+
+    if (hasJumped && y > 1) {
+      player.style.background = '#f0a500';
+      statusEl.textContent = 'jumping!'; statusEl.style.color = '#f0a500';
+    } else if (isColliding(player, wall)) {
+      player.style.background = '#f06060';
+      statusEl.textContent = 'collision!'; statusEl.style.color = '#f06060';
+    } else {
+      player.style.background = '#5b9cf6';
+      statusEl.textContent = 'no collision'; statusEl.style.color = 'var(--text-muted)';
+    }
+
+    id = requestAnimationFrame(loop);
+  }
+
+  window.d4Toggle = function() {
+    running = !running;
+    if (running) { loop(); } else cancelAnimationFrame(id);
+    document.getElementById('d4-btn').textContent = running ? 'Pause' : 'Start';
+  };
+
+  window.d4Reset = function() {
+    cancelAnimationFrame(id); running = false;
+    x = 20; velX = 2; y = 0; velY = 0; hasJumped = false;
+    player.style.left = '20px'; player.style.bottom = '28px';
+    player.style.background = '#5b9cf6';
+    statusEl.textContent = 'no collision'; statusEl.style.color = 'var(--text-muted)';
+    velEl.textContent = '0.0'; yEl.textContent = '0';
+    document.getElementById('d4-btn').textContent = 'Start';
+  };
+})();
+
+</script>
+</body>
+</html>
